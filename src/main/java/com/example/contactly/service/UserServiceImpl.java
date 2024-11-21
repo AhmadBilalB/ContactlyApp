@@ -3,6 +3,9 @@ package com.example.contactly.service;
 import com.example.contactly.dto.LoginRequest;
 import com.example.contactly.dto.LoginResponse;
 import com.example.contactly.dto.UserDTO;
+import com.example.contactly.exception.EmailAlreadyExistsException;
+import com.example.contactly.exception.PhoneNumberAlreadyExistsException;
+import com.example.contactly.exception.UserNotFoundException;
 import com.example.contactly.mapper.UserMapper;
 import com.example.contactly.utils.JwtUtil;
 import jakarta.validation.constraints.Pattern;
@@ -24,6 +27,7 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final AuthenticationManager authenticationManager;
     private final JwtUtil jwtUtil;
+    private final BCryptPasswordEncoder passwordEncoder;
 
 
 
@@ -31,15 +35,25 @@ public class UserServiceImpl implements UserService {
         this.authenticationManager = authenticationManager;
         this.jwtUtil = jwtUtil;
         this.userRepository = userRepository;
+        this.passwordEncoder = new BCryptPasswordEncoder();
+
     }
 
-    public User registerUser(UserDTO userDTO) throws Exception{
-        User user = UserMapper.toEntity(userDTO);  // Convert DTO to Entity
+    public UserDTO registerUser(UserDTO userDTO) throws Exception{
 
-        BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
-        String encodedPassword = passwordEncoder.encode(user.getPassword());
-        user.setPassword(encodedPassword);
-        return userRepository.save(user);
+        if (userRepository.findByEmail(userDTO.getEmail()).isPresent()) {
+            throw new EmailAlreadyExistsException("Email already exists");
+        }
+        if (userRepository.findByPhoneNumber(userDTO.getPhoneNumber()).isPresent()) {
+            throw new PhoneNumberAlreadyExistsException("Phone number already exists");
+        }
+
+        User user = UserMapper.toEntity(userDTO);
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
+
+        User savedUser = userRepository.save(user);
+        return UserMapper.toDTO(Optional.of(savedUser));
+
     }
 
 
@@ -61,19 +75,24 @@ public class UserServiceImpl implements UserService {
     }
 
     public LoginResponse login(LoginRequest loginRequest) throws Exception {
+        try {
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            loginRequest.getEmail(),
+                            loginRequest.getPassword()
+                    )
+            );
 
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        loginRequest.getEmail(),
-                        loginRequest.getPassword()
-                )
-        );
+            // If authentication is successful, generate JWT token
+            UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+            String jwtToken = jwtUtil.generateToken(userDetails.getUsername());
 
-        // If authentication is successful, generate JWT token
-        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-        String jwtToken = jwtUtil.generateToken(userDetails.getUsername());
+            // Return the token in the response
+            return new LoginResponse(jwtToken);
 
-        // Return the token in the response
-        return new LoginResponse(jwtToken);
+        }catch (Exception e) {
+            throw new UserNotFoundException("Invalid email or password");
+        }
+
     }
 }

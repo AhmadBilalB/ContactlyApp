@@ -10,7 +10,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 public interface UserService {
-    User registerUser(UserDTO userDTO) throws Exception;
+    UserDTO registerUser(UserDTO userDTO) throws Exception;
     UserDTO getUserByEmail(String email);
     boolean getUserByPhoneNumber(@Pattern(regexp = "^[0-9]{10}$", message = "Phone number must be 10 digits") String phoneNumber);
     LoginResponse login(LoginRequest loginRequest) throws Exception;

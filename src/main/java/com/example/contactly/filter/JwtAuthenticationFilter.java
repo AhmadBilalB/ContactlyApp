@@ -1,7 +1,10 @@
 package com.example.contactly.filter;
 
+import com.example.contactly.exception.ExpiredJwtException;
+import com.example.contactly.exception.MalformedJwtException;
 import com.example.contactly.service.CustomUserDetailsServiceImpl;
 import com.example.contactly.utils.JwtUtil;
+import io.jsonwebtoken.security.SignatureException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -9,6 +12,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -40,13 +44,40 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            UserDetails userDetails = this.customUserDetailsService.loadUserByUsername(username);
+            try {
+                UserDetails userDetails = this.customUserDetailsService.loadUserByUsername(username);
 
-            if (jwtUtil.validateToken(jwt)) {
-                UsernamePasswordAuthenticationToken authToken =
-                        new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+                if (jwtUtil.validateToken(jwt)) {
+                    UsernamePasswordAuthenticationToken authToken =
+                            new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                }else {
+                    // Invalid JWT token
+                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid JWT token");
+                    return;
+                }
+
+            } catch (UsernameNotFoundException ex) {
+                // User not found in the database
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "User not found");
+                return;
+            } catch (ExpiredJwtException ex) {
+                // Token has expired
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "JWT token expired");
+                return;
+            } catch (MalformedJwtException ex) {
+                // Malformed token
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Malformed JWT token");
+                return;
+            } catch (SignatureException ex) {
+                // Invalid signature
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid JWT signature");
+                return;
+            } catch (Exception ex) {
+                // Generic error
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Internal server error");
+                return;
             }
         }
         chain.doFilter(request, response);

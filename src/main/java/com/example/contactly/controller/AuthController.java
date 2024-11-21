@@ -4,6 +4,7 @@ import com.example.contactly.dto.*;
 import com.example.contactly.entity.User;
 import com.example.contactly.mapper.UserMapper;
 import com.example.contactly.service.UserService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.AuthenticationException;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -12,9 +13,10 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.RequestBody;
+
 
 import java.util.Optional;
 
@@ -34,7 +36,7 @@ public class AuthController {
     @Operation(
             summary = "Register a new user",
             description = "Register a new user by providing their email, phone number, and other details. Returns the created user or an error if registration fails.",
-            requestBody = @RequestBody(
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     description = "Details of the user to register",
                     required = true,
                     content = @Content(mediaType = "application/json", schema = @Schema(implementation = UserDTO.class))
@@ -46,21 +48,14 @@ public class AuthController {
                             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class)))
             }
     )
-    public ResponseEntity<?> register(@RequestBody(
+    public ResponseEntity<?> register(@io.swagger.v3.oas.annotations.parameters.RequestBody(
             description = "User registration details",
             required = true,
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = UserDTO.class))
-            ) UserDTO userDTO) {
+    ) @RequestBody UserDTO userDTO) {
 
-        if (userService.getUserByEmail(userDTO.getEmail()) != null) {
-            return ResponseEntity.badRequest().body(new ErrorResponseDTO("Email already exists"));
-        }
-        if (userService.getUserByPhoneNumber(userDTO.getPhoneNumber())) {
-            return ResponseEntity.badRequest().body(new ErrorResponseDTO("Phone number already exists"));
-        }
         try {
-            User savedUser = userService.registerUser(userDTO);
-            return ResponseEntity.ok(UserMapper.toDTO(Optional.ofNullable(savedUser)));
+            return ResponseEntity.ok(userService.registerUser(userDTO));
         }catch (Exception e) {
             return ResponseEntity.badRequest().body(new ErrorResponseDTO(e.getMessage()));
         }
@@ -70,7 +65,7 @@ public class AuthController {
     @Operation(
             summary = "Login a user",
             description = "Authenticate a user with their email and password. Returns a JWT token if authentication is successful.",
-            requestBody = @RequestBody(
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     description = "Login credentials",
                     required = true,
                     content = @Content(mediaType = "application/json", schema = @Schema(implementation = LoginRequest.class))
@@ -83,21 +78,17 @@ public class AuthController {
                     @ApiResponse(responseCode = "500", description = "Unexpected server error")
             }
     )
-    public ResponseEntity<LoginResponse> login(@RequestBody(
+    public ResponseEntity<LoginResponse> login(@io.swagger.v3.oas.annotations.parameters.RequestBody(
             description = "Login credentials",
             required = true,
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = LoginRequest.class))
-    ) LoginRequest loginRequest) {
+    ) @RequestBody LoginRequest loginRequest) {
+
         try {
-            LoginResponse jwtToken = userService.login(loginRequest);
-            if(jwtToken == null) {
-                return ResponseEntity.status(401).body(new LoginResponse("Invalid email or password"));
-            }
-            return ResponseEntity.ok(jwtToken);
-        } catch (AuthenticationException e) {
-            return ResponseEntity.status(401).body(new LoginResponse("Invalid email or password"));
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+            return ResponseEntity.ok(userService.login(loginRequest));
+        }catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new LoginResponse("Invalid email or password"));
         }
+
     }
 }

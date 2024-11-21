@@ -45,11 +45,11 @@ public class AuthControllerTest {
         UserDTO userDTO = new UserDTO("test@example.com", "password", "1234567890", String.valueOf(Role.USER));
 
         // Create a mock User entity to be returned after registration
-        User mockUser = new User();
+        UserDTO mockUser = new UserDTO();
         mockUser.setEmail("test@example.com");
         mockUser.setPhoneNumber("1234567890");
         mockUser.setPassword("password");
-        mockUser.setRole(Role.USER);
+        mockUser.setRole(String.valueOf(Role.USER));
 
         // Mock service layer behavior to simulate success
         when(userService.getUserByEmail(userDTO.getEmail())).thenReturn(null); // Email not found
