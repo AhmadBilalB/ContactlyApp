@@ -2,6 +2,7 @@ package com.example.contactly.entity;
 
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import org.hibernate.envers.Audited;
 
 import com.example.contactly.enums.Role;
@@ -43,6 +44,7 @@ public class User {
     private Role role;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonManagedReference
     private List<Contact> contacts;
 
 

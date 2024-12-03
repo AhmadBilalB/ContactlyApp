@@ -7,6 +7,7 @@ import com.example.contactly.entity.User;
 import com.example.contactly.enums.Role;
 import com.example.contactly.exception.InvalidCredentialsException;
 import com.example.contactly.exception.ResourceNotFoundException;
+import com.example.contactly.kafka.ContactProducer;
 import com.example.contactly.mapper.ContactMapper;
 import com.example.contactly.repository.ContactRepository;
 import com.example.contactly.repository.UserRepository;
@@ -21,11 +22,13 @@ import java.util.Optional;
 public class ContactServiceImpl implements ContactService {
 
     private final ContactRepository contactRepository;
-    UserRepository userRepository;
+    private final UserRepository userRepository;
+    private final ContactProducer contactProducer;
 
-    public ContactServiceImpl(ContactRepository contactRepository, UserRepository userRepository) {
+    public ContactServiceImpl(ContactRepository contactRepository, UserRepository userRepository, ContactProducer ContactProducer) {
         this.userRepository = userRepository;
         this.contactRepository = contactRepository;
+        this.contactProducer = ContactProducer;
     }
 
     public ContactDTO save(ContactDTO contactDTO, CustomUserDetails userDetails) {
@@ -36,7 +39,13 @@ public class ContactServiceImpl implements ContactService {
 
         Contact contact = ContactMapper.toEntity(contactDTO, user);
         contact = contactRepository.save(contact);
-        return ContactMapper.toDTO(contact);
+
+        ContactDTO contactDTOResponse = ContactMapper.toDTO(contact);
+
+        String contactJson = ContactMapper.toJson(contactDTOResponse);  // Make sure to convert Contact to JSON
+        contactProducer.sendNewContact(contactJson);
+
+        return contactDTOResponse;
 
     }
 
